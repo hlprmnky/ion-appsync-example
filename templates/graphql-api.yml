@@ -1,0 +1,221 @@
+---
+Description: AWS AppSync API for Datomic Ion Starter
+Parameters:
+  APIName:
+    Type: String
+    Description: "Name of the API, for generate names for resources"
+    MinLength: 3
+    MaxLength: 20
+    AllowedPattern: '^[a-zA-Z][a-zA-Z0-9_]*$'
+  IonStackName:
+    Type: String
+    Description: |
+      Name of the Datomic Cloud compute stack where your Ions are deployed
+    AllowedPattern: '^[a-zA-Z][a-zA-Z0-9_-]*$'
+Resources:
+# First up, SNS role and policy to let the Cognito application send MFA texts
+  SNSRole:
+    Type: AWS::IAM::Role
+    Description: "An IAM Role to allow Cognito to send SNS messages"
+    Properties:
+      RoleName: !Sub ${APIName}-cognito-sns-role
+      ManagedPolicyArns:
+        - Ref: CognitoSNSPolicy
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - sts:AssumeRole
+            Principal:
+              Service:
+                - cognito-idp.amazonaws.com
+    DependsOn:
+      - CognitoSNSPolicy
+
+  CognitoSNSPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Managed policy to allow Amazon Cognito to access SNS
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action: sns:publish
+            Resource: "*"
+# Next, a Cognito UserPool and client to manage access to the API
+  UserPool:
+    Type: "AWS::Cognito::UserPool"
+    Description: "A Cognito user pool for authenticating users"
+    Properties:
+      UserPoolName: !Sub ${APIName}-user-pool
+      AutoVerifiedAttributes:
+        - phone_number
+      MfaConfiguration: "ON"
+      SmsConfiguration:
+        ExternalId: !Sub ${APIName}-external
+        SnsCallerArn: !GetAtt SNSRole.Arn
+      Schema:
+        - Name: name
+          AttributeDataType: String
+          Mutable: true
+          Required: true
+        - Name: email
+          AttributeDataType: String
+          Mutable: false
+          Required: true
+        - Name: phone_number
+          AttributeDataType: String
+          Mutable: false
+          Required: true
+
+  UserPoolClient:
+    Type: "AWS::Cognito::UserPoolClient"
+    Description: "App Client used by AWS AppSync"
+    Properties:
+      ClientName: !Sub ${APIName}-appsync-client
+      GenerateSecret: false
+      UserPoolId: !Ref UserPool
+# Here we start with AppSync resources for the Cognito application to serve up
+# First, an IAM role to let us execute the Ions deployed in our stack:
+  IonLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${APIName}-appsync-ion-lambda-role
+      ManagedPolicyArns:
+        - Ref: AppSyncLambdaIonPolicy
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - sts:AssumeRole
+            Principal:
+              Service:
+                - appsync.amazonaws.com
+    DependsOn:
+      - AppSyncLambdaIonPolicy
+
+  AppSyncLambdaIonPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: "Managed policy to allow AWS AppSync to access Datomic Cloud Ions"
+      Path: /appsync/
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - lambda:Invoke
+            Resource:
+              - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${IonStackName}-add-item
+              - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${IonStackName}-items-by-type
+# Next, the actual GraphQL Schema and data source:
+  AppSyncApi:
+    Type: "AWS::AppSync::GraphQLApi"
+    Description: "The GraphQL API for the Notes App"
+    Properties:
+      AuthenticationType: "AMAZON_COGNITO_USER_POOLS"
+      Name: !Sub ${APIName}
+      UserPoolConfig:
+        UserPoolId: !Ref UserPoolClient
+        AwsRegion: !Sub ${AWS::Region}
+        DefaultAction: "ALLOW"
+
+  AppSyncSchema:
+    Type: "AWS::AppSync::GraphQLSchema"
+    Properties:
+      ApiId: !GetAtt AppSyncApi.ApiId
+      Definition: |
+        type Item {
+          sku: ID!
+          color: String
+          size: String
+          type: String
+          featured?: Boolean
+        }
+        type Query {
+          itemsByType(type: String!, limit: Int, nextToken: String): [Item]
+        }
+        type Mutation {
+          addItem(sku: ID!, color: String!, size: String!, type: String!): Item
+        }
+        type Schema {
+          query: Query
+          mutation: Mutation
+        }
+# DataSource instances to expose our Ions to AppSync
+  ItemsByTypeDataSource:
+    Type: "AWS::AppSync::DataSource"
+    DependsOn: AppSyncSchema
+    Properties:
+      Type: "AWS_LAMBDA"
+      Description: "Invoke the itemsByType Ion"
+      ServiceRoleArn: !GetAtt IonLambdaRole.Arn
+      LambdaConfig:
+        LambdaFunctionArn: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${IonStackName}-items-by-type
+      ApiId: !GetAtt AppSyncApi.ApiId
+      Name: "ItemsByTypeDatasource"
+  AddItemDataSource:
+    Type: "AWS::AppSync::DataSource"
+    DependsOn: AppSyncSchema
+    Properties:
+      Type: "AWS_LAMBDA"
+      Description: "Invoke addItem Ion"
+      ServiceRoleArn: !GetAtt IonLambdaRole.Arn
+      LambdaConfig:
+        LambdaFunctionArn: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${IonStackName}-add-item
+      ApiId: !GetAtt AppSyncApi.ApiId
+      Name: "AddItemDatasource"
+# And finally the resolvers that map GraphQL fields onto our Lambda Ions
+  ItemsByTypeResolver:
+    Type: "AWS::AppSync::Resolver"
+    DependsOn: AppSyncSchema
+    Properties:
+      ApiId: !GetAtt AppSyncApi.ApiId
+      TypeName: Query
+      FieldName: itemsByType
+      DataSourceName: !GetAtt ItemsByTypeDataSource.Name
+      RequestMappingTemplate: |
+        {
+          "version": "2017-07-28",
+          "operation": "Invoke",
+          "payload": $utils.toJson($context.arguments)
+        }
+      ResponseMappingTemplate: |
+        $utils.toJson($context.result)
+  AddItemResolver:
+    Type: "AWS::AppSync::Resolver"
+    DependsOn: AppSyncSchema
+    Properties:
+      ApiId: !GetAtt AppSyncApi.ApiId
+      TypeName: Mutation
+      FieldName: addItem
+      DataSourceName: !GetAtt AddItemDataSource.Name
+      RequestMappingTemplate: |
+        {
+          "version": "2017-07-28",
+          "operation": "Invoke",
+          "payload": [$utils.toJson($context.arguments)]
+        }
+      ResponseMappingTemplate: |
+        $utils.toJson($context.result)
+Outputs:
+  CognitoUserPoolId:
+    Description: The Pool ID of the Cognito User Pool
+    Value: !Ref UserPool
+  CognitoUserPoolClientId:
+    Description: The Client ID for AWS AppSync Auth
+    Value: !Ref UserPoolClient
+  GraphQLApiEndpoint:
+    Description: The URL to the GraphQL Endpoint
+    Value: !GetAtt AppSyncApi.GraphQLUrl
+  GraphQLApiId:
+    Description: The API ID of the GraphQL API
+    Value: !GetAtt AppSyncApi.ApiId
+  ItemsByTypeDataSourceName:
+    Description: The name of the DataSource for items-by-type
+    Value: !GetAtt ItemsByTypeDataSource.Name
+  AddItemDataSourceName:
+    Description: The name of the DataSource for add-item
+    Value: !GetAtt AddItemDataSource.Name
