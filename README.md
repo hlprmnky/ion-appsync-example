@@ -23,7 +23,6 @@ penpineappleapplepen!
 - Data sources that expose the `ion-starter` lambdas to AppSync
 - Resolvers that let us query items by type and add an item
 - Subscription that lets us track items by type over time
-- Simple CLJS web client for the GraphQL API 
+- Simple CLJS web client for the GraphQL API
 
 ## How to do it
-... 

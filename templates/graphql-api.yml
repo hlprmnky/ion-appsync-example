@@ -62,11 +62,11 @@ Resources:
           Required: true
         - Name: email
           AttributeDataType: String
-          Mutable: false
+          Mutable: true
           Required: true
         - Name: phone_number
           AttributeDataType: String
-          Mutable: false
+          Mutable: true
           Required: true
 
   UserPoolClient:
@@ -76,6 +76,10 @@ Resources:
       ClientName: !Sub ${APIName}-appsync-client
       GenerateSecret: false
       UserPoolId: !Ref UserPool
+      WriteAttributes:
+        - name
+        - email
+        - phone_number
 # Here we start with AppSync resources for the Cognito application to serve up
 # First, an IAM role to let us execute the Ions deployed in our stack:
   IonLambdaRole:
@@ -106,10 +110,10 @@ Resources:
         Statement:
           - Effect: Allow
             Action:
-              - lambda:Invoke
+              - lambda:InvokeFunction
             Resource:
               - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${IonStackName}-add-item
-              - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${IonStackName}-items-by-type
+              - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${IonStackName}-items-by-type-gql
 # Next, the actual GraphQL Schema and data source:
   AppSyncApi:
     Type: "AWS::AppSync::GraphQLApi"
@@ -118,7 +122,7 @@ Resources:
       AuthenticationType: "AMAZON_COGNITO_USER_POOLS"
       Name: !Sub ${APIName}
       UserPoolConfig:
-        UserPoolId: !Ref UserPoolClient
+        UserPoolId: !Ref UserPool
         AwsRegion: !Sub ${AWS::Region}
         DefaultAction: "ALLOW"
 
@@ -153,7 +157,7 @@ Resources:
       Description: "Invoke the itemsByType Ion"
       ServiceRoleArn: !GetAtt IonLambdaRole.Arn
       LambdaConfig:
-        LambdaFunctionArn: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${IonStackName}-items-by-type
+        LambdaFunctionArn: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${IonStackName}-items-by-type-gql
       ApiId: !GetAtt AppSyncApi.ApiId
       Name: "ItemsByTypeDatasource"
   AddItemDataSource:
@@ -178,9 +182,9 @@ Resources:
       DataSourceName: !GetAtt ItemsByTypeDataSource.Name
       RequestMappingTemplate: |
         {
-          "version": "2017-07-28",
+          "version": "2017-02-28",
           "operation": "Invoke",
-          "payload": $utils.toJson($context.arguments)
+          "payload": $util.toJson($context.arguments)
         }
       ResponseMappingTemplate: |
         $utils.toJson($context.result)
@@ -194,12 +198,12 @@ Resources:
       DataSourceName: !GetAtt AddItemDataSource.Name
       RequestMappingTemplate: |
         {
-          "version": "2017-07-28",
+          "version": "2017-02-28",
           "operation": "Invoke",
-          "payload": [$utils.toJson($context.arguments)]
+          "payload": $utils.toJson([$context.arguments.sku, $context.arguments.color, $context.arguments.size, $context.arguments.type])
         }
       ResponseMappingTemplate: |
-        $utils.toJson($context.result)
+        $utils.toJson($context.arguments) # Current mutation in ion-starter doesn't return the Item created
 Outputs:
   CognitoUserPoolId:
     Description: The Pool ID of the Cognito User Pool
