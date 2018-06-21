@@ -113,6 +113,7 @@ Resources:
               - lambda:InvokeFunction
             Resource:
               - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${IonStackName}-add-item
+              - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${IonStackName}-items-by-type
               - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${IonStackName}-items-by-type-gql
 # Next, the actual GraphQL Schema and data source:
   AppSyncApi:
@@ -138,11 +139,14 @@ Resources:
           type: String
           featured?: Boolean
         }
+        type DatomicBasisT {
+          t: String!
+        }
         type Query {
           itemsByType(type: String!, limit: Int, nextToken: String): [Item]
         }
         type Mutation {
-          addItem(sku: ID!, color: String!, size: String!, type: String!): Item
+          addItem(sku: ID!, color: String!, size: String!, type: String!): DatomicBasisT
         }
         type Schema {
           query: Query
@@ -157,7 +161,7 @@ Resources:
       Description: "Invoke the itemsByType Ion"
       ServiceRoleArn: !GetAtt IonLambdaRole.Arn
       LambdaConfig:
-        LambdaFunctionArn: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${IonStackName}-items-by-type-gql
+        LambdaFunctionArn: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${IonStackName}-items-by-type
       ApiId: !GetAtt AppSyncApi.ApiId
       Name: "ItemsByTypeDatasource"
   AddItemDataSource:
@@ -184,10 +188,27 @@ Resources:
         {
           "version": "2017-02-28",
           "operation": "Invoke",
-          "payload": $util.toJson($context.arguments)
+          "payload": { "type" : "$utils.toJson($context.arguments.type)" }
         }
-      ResponseMappingTemplate: |
-        $utils.toJson($context.result)
+        # By Grabthar's Hammer, what a template!
+      ResponseMappingTemplate: | 
+        [
+          \#foreach ( $item in $context.result )
+          {
+            \#foreach ( $value in $item )
+              \#if ( $foreach.count == 1 ) 
+                sku: $value
+              \#{elseif ( $foreach.count == 2) }
+                size: $value
+              \#{elseif ( $foreach.count == 3) }
+                color: $value
+              \#{elseif ( $foreach.count == 4) }
+                featured: $value
+              \#end  
+            \#end  
+            }
+          \#end
+        ]
   AddItemResolver:
     Type: "AWS::AppSync::Resolver"
     DependsOn: AppSyncSchema
@@ -203,7 +224,7 @@ Resources:
           "payload": $utils.toJson([$context.arguments.sku, $context.arguments.color, $context.arguments.size, $context.arguments.type])
         }
       ResponseMappingTemplate: |
-        $utils.toJson($context.arguments) # Current mutation in ion-starter doesn't return the Item created
+        $utils.toJson($context.result)
 Outputs:
   CognitoUserPoolId:
     Description: The Pool ID of the Cognito User Pool
