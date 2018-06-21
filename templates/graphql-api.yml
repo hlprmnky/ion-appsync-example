@@ -190,18 +190,17 @@ Resources:
           "operation": "Invoke",
           "payload": { "type" : "$utils.toJson($context.arguments.type)" }
         }
-        # By Grabthar's Hammer, what a template!
       ResponseMappingTemplate: | 
         [
           \#foreach ( $item in $context.result )
           {
             \#foreach ( $value in $item )
               \#if ( $foreach.count == 1 ) 
-                sku: $value
+                sku: $value,
               \#{elseif ( $foreach.count == 2) }
-                size: $value
+                size: $value,
               \#{elseif ( $foreach.count == 3) }
-                color: $value
+                color: $value,
               \#{elseif ( $foreach.count == 4) }
                 featured: $value
               \#end  
