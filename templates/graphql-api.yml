@@ -188,26 +188,28 @@ Resources:
         {
           "version": "2017-02-28",
           "operation": "Invoke",
-          "payload": { "type" : "$utils.toJson($context.arguments.type)" }
+          "payload": $utils.toJson($context.arguments.type)
         }
-      ResponseMappingTemplate: | 
-        [
-          \#foreach ( $item in $context.result )
-          {
-            \#foreach ( $value in $item )
-              \#if ( $foreach.count == 1 ) 
-                sku: $value,
-              \#{elseif ( $foreach.count == 2) }
-                size: $value,
-              \#{elseif ( $foreach.count == 3) }
-                color: $value,
-              \#{elseif ( $foreach.count == 4) }
-                featured: $value
-              \#end  
-            \#end  
-            }
+      ResponseMappingTemplate: |
+        \#set ( $resultLength = $context.result.length() )
+        \#set ( $resultArrayEnd = $resultLength - 2 )
+        \#set ( $trimmedResult = $context.result.substring(2, $resultArrayEnd) )
+        \#set ( $itemsArray = [] )
+        \#foreach ( $item in $context.result )
+          \#set ( $itemMap = {} )
+          \#foreach ( $value in $item )
+            \#if ( $foreach.count == 1 )
+              $util.qr($itemMap.put("sku", $value))
+            \#{elseif ( $foreach.count == 2) }
+              $util.qr($itemMap.put("size", $value))
+            \#{elseif ( $foreach.count == 3) }
+              $util.qr($itemMap.put("color", $value))
+            \#{elseif ( $foreach.count == 4) }
+              $util.qr($itemMap.put("featured", $value))
+            \#end
           \#end
-        ]
+        \#end
+        $utils.toJson($itemsArray)
   AddItemResolver:
     Type: "AWS::AppSync::Resolver"
     DependsOn: AppSyncSchema
@@ -223,7 +225,9 @@ Resources:
           "payload": $utils.toJson([$context.arguments.sku, $context.arguments.color, $context.arguments.size, $context.arguments.type])
         }
       ResponseMappingTemplate: |
-        $utils.toJson($context.result)
+        \#set ( $noColons = $context.result.replace(":", "") )
+        \#set ( $quoted = $noColons.replace( "t", "\"t\"") )
+        $utils.toJson($quoted)
 Outputs:
   CognitoUserPoolId:
     Description: The Pool ID of the Cognito User Pool
