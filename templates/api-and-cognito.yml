@@ -1,0 +1,29 @@
+---
+Description: |
+  This template comprises two nested stacks, one AWS Cognito User Pool
+  which can be used to let users sign up and offers SMS or email-based
+  MFA, and one AppSync GraphQL API that demonstrates using Lambda Ions
+  to support GraphQL query, mutation, and subscription resolver types
+Parameters:
+  Parameters:
+  APIName:
+    Type: String
+    Description: "Name of the API, for generate names for resources"
+    MinLength: 3
+    MaxLength: 20
+    AllowedPattern: '^[a-zA-Z][a-zA-Z0-9_]*$'
+  ComputeStackName:
+    Type: String
+    Description: |
+      Name of the Datomic Cloud compute stack where your Ions are deployed
+    AllowedPattern: '^[a-zA-Z][a-zA-Z0-9_-]*$'
+Resources:
+  CognitoStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+
+  AppSyncStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+
+Outputs:
