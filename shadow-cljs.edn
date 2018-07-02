@@ -1,0 +1,14 @@
+{:source-paths ["src-pages" "test-pages"]
+ :dependencies [[hiccups "0.3.0"]
+                [garden "1.3.5"]
+                [cljs-node-io "0.5.0"]]
+ :builds       {:pages {:target    :node-library
+                        :output-to "out/pages/handlers.js"  ; where does compilation output go
+                        :exports   {:home pages.handlers/home-page
+                                    :app  pages.handlers/app-page}
+                        :release   {:output-to "out/release/handlers.js"}}
+                :test  {:target    :node-test
+                        :output-to "out/tests/node-tests.js"
+                        :ns-regexp "-spec$"                 ; TODO use default i.e. -test
+                        :autorun   true}}}
+
