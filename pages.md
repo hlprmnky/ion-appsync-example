@@ -13,7 +13,7 @@ To complete these steps you will need some data from the Cognito User Pool:
 * app client id
 * app client secret
 
-Now you are ready to create the pages:
+Now you are ready to create the pages. `<stack name>` in the steps below is a name you choose for this new Cloudformation stack.
 
 1. generate the Cloudformation files `lein run -m crucible.encoding.main`
 2. create the Cloudformation stack `./scripts/install.sh <stack name> <aws region> <cognito pool id> <cognito domain> <cognito client id> <cognito client secret>`
@@ -24,13 +24,13 @@ Now you are ready to create the pages:
 If all steps succeeded, you can now deploy the API Gateway to the *dev* stage which was created by the stack.
 
 Then click on the URL for the deployed API and add */home* to the address bar in the browser to test the home page.
-The *Website Home Page* should now be displayed.
+The *Website Home Page* should now be displayed. Now you can enable the authentication flow by:
 
-5. Copy the URL from the browser address bar
-6. In the AWS Console, Navigate to your Cognito User Pool / App Client Settings
-7. Paste the URL into the *Sign out URL(s)* field
-8. Paste the URL into the *Callback URL(s)* field and change the uri to */app* instead of */home*
-9. Save the changes and try login in the browser.
+1. Copy the URL from the browser address bar
+2. In the AWS Console, Navigate to your Cognito User Pool / App Client Settings
+3. Paste the URL into the *Sign out URL(s)* field
+4. Paste the URL into the *Callback URL(s)* field and change the uri to */app* instead of */home*
+5. Save the changes and try login in the browser (you will need to register/create a Cognito user)
 
 That's it! You have a full login/logout application using Cognito and Node.js.
 
@@ -65,6 +65,10 @@ Why CLJS for pages? Fast cold starts!
 Even though Ions have slow cold starts, this will probably improve in future.
 On that basis, using Node.js for server pages that don't use Ion/Datomic is a good design for a fast UX.
 
+Also, when using the Solo Cloud, there will be downtime when deploying new Ions because there's only one node.
+Using a separate Lamdba to generate an html page allows your app to show html to the user while waiting for
+the cold starting node to respond.
+
 Why Shadow-CLJS?
 
 Shadow CLJS makes npm library use very simple. Since these pages use Node.js, it's a good fit.
@@ -74,3 +78,4 @@ Shadow CLJS makes npm library use very simple. Since these pages use Node.js, it
 * Store Cognito JWT in Datomic and use a cookie to retrieve it.
 Avoids needing to pass the JWT as a URL parameter to logged-in pages.
 * Validate the JWT token before using it (see validate-token fn in handlers.cljs)
+* use a tools.cli fn instead of bash scripts and read the Cognito data instead of using CLI args
