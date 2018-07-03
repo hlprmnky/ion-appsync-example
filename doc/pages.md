@@ -58,7 +58,21 @@ If you want to change the pages then:
 
 Note: if you are adding a new page/uri then don't forget to add it to the *update-lambdas-js.sh* file.
 
+If you want to run these scripts in a CI/Docker image then use `steveb8n/cljs-node-aws-cli` to have all the CLI tools available.
+
 ## Design
+
+Figure 1: Cloudformation Stack
+
+![Pages Stack Diagram](html-pages-stack.png)
+
+The Crucible/Cloudformation template creates the stack above. It contains:
+
+* 2 CLJS Lambdas which read thier code from a *CodeBucket*
+* A role to allow the Lambdas to run
+* 2 permissions for the API Gateway to invoke the Lambdas
+* 2 resources with GET methods linked to the Lambdas
+* A *dev* deployment stage, ready for you to publish the API
 
 Why CLJS for pages? Fast cold starts!
 
@@ -79,3 +93,4 @@ Shadow CLJS makes npm library use very simple. Since these pages use Node.js, it
 Avoids needing to pass the JWT as a URL parameter to logged-in pages.
 * Validate the JWT token before using it (see validate-token fn in handlers.cljs)
 * use a tools.cli fn instead of bash scripts and read the Cognito data instead of using CLI args
+* Investigate if IAM roles can allow Lambdas to exchange code for token (instead of TOKEN endpoint and needing id/secret in env)
