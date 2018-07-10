@@ -7,7 +7,7 @@
          ;; lambda handlers
          datomic.ion.starter/echo
          datomic.ion.starter/add-item
-         datomic.ion.starter/items-by-type
+         datomic.ion.starter/items-by-type-json
          com.hlprmnky.ion-appsync.core/items-by-type-gql
 
          ;; web applications
@@ -25,8 +25,8 @@
            {:fn datomic.ion.starter/add-item
             :description "adds an inventory item, using a tx fn"}
            :items-by-type
-           {:fn datomic.ion.starter/items-by-type
-            :description "returns info about items with a particular type"}
+           {:fn datomic.ion.starter/items-by-type-json
+            :description "returns info in JSON about items with a particular type"}
            :items-by-type-web
            {:fn datomic.ion.starter/items-by-type-web
             :integration :api-gateway/proxy

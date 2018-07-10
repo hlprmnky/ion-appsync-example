@@ -50,7 +50,7 @@ Resources:
               - lambda:InvokeFunction
             Resource:
               - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${ComputeStackName}-add-item
-              - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${ComputeStackName}-items-by-type
+              - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${ComputeStackName}-items-by-type-json
               - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${ComputeStackName}-items-by-type-gql
 # Next, the actual GraphQL Schema and data source:
   AppSyncApi:

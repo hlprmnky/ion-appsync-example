@@ -34,9 +34,18 @@ locally, fill in the correct values in the map."
          [(datomic.ion.starter/feature-item? $ ?e) ?featured]]
        db type))
 
+(defn items-by-type-json
+  "items-by-type starter ion modified to emit JSON for consumption by the AWS service ecosystem"
+  [{:keys [input]}]
+  (let [type (keyword (get (json/read-str input) "type"))
+        conn (d/connect (get-client) {:db-name "datomic-docs-tutorial"})]
+    ;; NOTE that conn can - and should be - parameterized in production builds.
+    ;; See the ion-starter repo and get-connection for a better but more verbose approach
+    (->> (items-by-type* (d/db conn) type)
+          json/write-str)))
 
 (defn items-by-type-gql
-  "GraphQL Datasource input massager for items-by-type ion"
+  "GraphQL Datasource data-shape massager for items-by-type ion"
   [{:keys [input]}]
   (let [type (keyword (get (json/read-str input) "type"))
         conn (d/connect (get-client) {:db-name "datomic-docs-tutorial"})]
