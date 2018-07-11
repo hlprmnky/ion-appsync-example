@@ -1,4 +1,6 @@
-{:allow [;; net-new fns
+{:allow [;; borrowed from starter
+         datomic.ion.starter/feature-item?
+         ;; net-new fns        
          com.hlprmnky.ion-appsync.core/items-by-type-json
          com.hlprmnky.ion-appsync.core/items-by-type-gql]
  :lambdas {:items-by-type
