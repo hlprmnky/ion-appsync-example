@@ -7,30 +7,11 @@
          ;; lambda handlers
          datomic.ion.starter/echo
          datomic.ion.starter/add-item
-         datomic.ion.starter/items-by-type-json
-         com.hlprmnky.ion-appsync.core/items-by-type-gql
-
-         ;; web applications
-         datomic.ion.starter/items-by-type-web
-         datomic.ion.starter/get-tutorial-schema
-         ]
- :lambdas {:echo
-           {:fn datomic.ion.starter/echo
-            :description "Echos input"}
-           :get-tutorial-schema
-           {:fn datomic.ion.starter/get-tutorial-schema
-            :integration :api-gateway/proxy
-            :description "returns the schema for the Datomic docs tutorial"}
-           :add-item
-           {:fn datomic.ion.starter/add-item
-            :description "adds an inventory item, using a tx fn"}
-           :items-by-type
-           {:fn datomic.ion.starter/items-by-type-json
+         com.hlprmnky.ion-appsync.core/items-by-type-json
+         com.hlprmnky.ion-appsync.core/items-by-type-gql]
+ :lambdas {:items-by-type
+           {:fn com.hlprmnky.ion-appsync.core/items-by-type-json
             :description "returns info in JSON about items with a particular type"}
-           :items-by-type-web
-           {:fn datomic.ion.starter/items-by-type-web
-            :integration :api-gateway/proxy
-            :description "web app that returns info about items with a particular type"}
            :items-by-type-gql
            {:fn com.hlprmnky.ion-appsync.core/items-by-type-gql
             :description "adapts AppSync query input shape for items-by-type"}}

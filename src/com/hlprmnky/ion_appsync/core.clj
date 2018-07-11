@@ -15,10 +15,10 @@
 interface when run on a Datomic compute node. If you want to call
 locally, fill in the correct values in the map."
   (memoize #(d/client {:server-type :ion
-                       :region "us-east-2"
-                       :system "datomic-cloud-appsync"
-                       :query-group "datomic-cloud-appsync"
-                       :endpoint "http://entry.datomic-cloud-appsync.us-east-2.datomic.net:8182"
+                       :region "us-east-2"                                                       ;; THESE NEED TO HAVE
+                       :system "datomic-cloud-appsync"                                           ;; CORRECT VALUES
+                       :query-group "datomic-cloud-appsync"                                      ;; FOR YOUR SPECIFIC
+                       :endpoint "http://entry.datomic-cloud-appsync.us-east-2.datomic.net:8182" ;; DATOMIC CLOUD INSTANCE
                        :proxy-port 8182})))
 
 (defn items-by-type*
@@ -38,7 +38,7 @@ locally, fill in the correct values in the map."
   "items-by-type starter ion modified to emit JSON for consumption by the AWS service ecosystem"
   [{:keys [input]}]
   (let [type (keyword (get (json/read-str input) "type"))
-        conn (d/connect (get-client) {:db-name "datomic-docs-tutorial"})]
+        conn (d/connect (get-client) {:db-name "datomic-cloud-appsync"})]
     ;; NOTE that conn can - and should be - parameterized in production builds.
     ;; See the ion-starter repo and get-connection for a better but more verbose approach
     (->> (items-by-type* (d/db conn) type)
@@ -48,7 +48,7 @@ locally, fill in the correct values in the map."
   "GraphQL Datasource data-shape massager for items-by-type ion"
   [{:keys [input]}]
   (let [type (keyword (get (json/read-str input) "type"))
-        conn (d/connect (get-client) {:db-name "datomic-docs-tutorial"})]
+        conn (d/connect (get-client) {:db-name "datomic-cloud-appsync"})]
     ;; NOTE that conn can - and should be - parameterized in production builds.
     ;; See the ion-starter repo and get-connection for a better but more verbose approach
     (try
@@ -64,6 +64,8 @@ locally, fill in the correct values in the map."
                               "|")))))
 
 
-(comment (items-by-type-gql {:input "{\"type\" : \"hat\"}"})
-         (items-by-type-gql {:input "{\"type\" : \"vibranium bracelet\"}"}))
+(comment
+  (System/setProperty "aws.profile" "hlprmnky")
+  (items-by-type-gql {:input "{\"type\" : \"hat\"}"})
+  (items-by-type-gql {:input "{\"type\" : \"vibranium bracelet\"}"}))
 
