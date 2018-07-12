@@ -69,7 +69,7 @@ Resources:
     Description: "App Client used by AWS AppSync"
     Properties:
       ClientName: !Sub ${APIName}-appsync-client
-      GenerateSecret: false
+      GenerateSecret: true
       UserPoolId: !Ref UserPool
       WriteAttributes:
         - name

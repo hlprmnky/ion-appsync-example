@@ -1,0 +1,19 @@
+{
+  "name": "html-pages",
+  "version": "1.0.0",
+  "description": "CLJS html pages, built using shadow-cljs",
+  "main": "index.js",
+  "directories": {
+    "doc": "doc",
+    "test": "test"
+  },
+  "dependencies": {
+    "request": "^2.87.0",
+    "request-promise-native": "^1.0.5",
+    "shadow-cljs": "^2.4.10"
+  },
+  "devDependencies": {},
+  "scripts": {},
+  "author": "",
+  "license": "ISC"
+}
