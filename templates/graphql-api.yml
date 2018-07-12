@@ -80,7 +80,8 @@ Resources:
           t: String!
         }
         type Query {
-          itemsByType(type: String!, limit: Int, nextToken: String): [Item]
+          itemsByType(type: String!): [Item]
+          itemsByTypeJson(type: String!): [Item]
         }
         type Mutation {
           addItem(sku: ID!, color: String!, size: String!, type: String!): DatomicBasisT
@@ -113,7 +114,7 @@ Resources:
       ApiId: !GetAtt AppSyncApi.ApiId
       Name: "AddItemDatasource"
 # And finally the resolvers that map GraphQL fields onto our Lambda Ions
-  ItemsByTypeResolver:
+  ItemsByTypeGqlResolver:
     Type: "AWS::AppSync::Resolver"
     DependsOn: AppSyncSchema
     Properties:
@@ -128,9 +129,22 @@ Resources:
           "payload": $utils.toJson($context.arguments.type)
         }
       ResponseMappingTemplate: |
-        \#set ( $resultLength = $context.result.length() )
-        \#set ( $resultArrayEnd = $resultLength - 2 )
-        \#set ( $trimmedResult = $context.result.substring(2, $resultArrayEnd) )
+          $utils.toJson($context.result)
+  ItemsByTypeJsonResolver:
+    Type: "AWS::AppSync::Resolver"
+    DependsOn: AppSyncSchema
+    Properties:
+      ApiId: !GetAtt AppSyncApi.ApiId
+      TypeName: Query
+      FieldName: itemsByTypeJson
+      DataSourceName: !GetAtt ItemsByTypeJsonDataSource.Name
+      RequestMappingTemplate: |
+        {
+          "version": "2017-02-28",
+          "operation": "Invoke",
+          "payload": $utils.toJson($context.arguments.type)
+        }
+      ResponseMappingTemplate: |
         \#set ( $itemsArray = [] )
         \#foreach ( $item in $context.result )
           \#set ( $itemMap = {} )
@@ -143,8 +157,9 @@ Resources:
               $util.qr($itemMap.put("color", $value))
             \#{elseif ( $foreach.count == 4) }
               $util.qr($itemMap.put("featured", $value))
-            \#end
+            \#end            
           \#end
+          $util.qr( $itemsArray.push( $itemMap ))
         \#end
         $utils.toJson($itemsArray)
   AddItemResolver:

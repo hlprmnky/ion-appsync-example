@@ -5,6 +5,7 @@
    [clojure.java.io :as io]
    [clojure.pprint :as pp]
    [datomic.client.api :as d]
+   [datomic.ion.starter :as ion]
    [datomic.java.io.bbuf :as bbuf]))
 
 ;; We borrow the core items-by-type ion and get-client
@@ -21,19 +22,6 @@ locally, fill in the correct values in the map."
                        :endpoint "http://entry.datomic-cloud-appsync.us-east-2.datomic.net:8182" ;; DATOMIC CLOUD INSTANCE
                        :proxy-port 8182})))
 
-(defn items-by-type*
-  "Returns info about items matching type"
-  [db type]
-  (d/q '[:find ?sku ?size ?color ?featured
-         :in $ ?type
-         :where
-         [?e :inv/type ?type]
-         [?e :inv/sku ?sku]
-         [?e :inv/size ?size]
-         [?e :inv/color ?color]
-         [(datomic.ion.starter/feature-item? $ ?e) ?featured]]
-       db type))
-
 (defn items-by-type-json
   "items-by-type starter ion modified to emit JSON for consumption by the AWS service ecosystem"
   [{:keys [input]}]
@@ -41,7 +29,7 @@ locally, fill in the correct values in the map."
         conn (d/connect (get-client) {:db-name "datomic-cloud-appsync"})]
     ;; NOTE that conn can - and should be - parameterized in production builds.
     ;; See the ion-starter repo and get-connection for a better but more verbose approach
-    (->> (items-by-type* (d/db conn) type)
+    (->> (ion/items-by-type* (d/db conn) type)
           json/write-str)))
 
 (defn items-by-type-gql
@@ -52,7 +40,7 @@ locally, fill in the correct values in the map."
     ;; NOTE that conn can - and should be - parameterized in production builds.
     ;; See the ion-starter repo and get-connection for a better but more verbose approach
     (try
-      (->> (items-by-type* (d/db conn) type)
+      (->> (ion/items-by-type* (d/db conn) type)
            (map #(zipmap [:sku :size :color :featured] %))
            json/write-str)
       (catch Exception e (str "Exception: |"
@@ -66,6 +54,7 @@ locally, fill in the correct values in the map."
 
 (comment
   (System/setProperty "aws.profile" "hlprmnky")
+  (items-by-type-json {:input "{\"type\" : \"hat\"}"})
   (items-by-type-gql {:input "{\"type\" : \"hat\"}"})
   (items-by-type-gql {:input "{\"type\" : \"vibranium bracelet\"}"}))
 
