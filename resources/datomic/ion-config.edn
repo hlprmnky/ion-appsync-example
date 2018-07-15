@@ -1,12 +1,17 @@
-{:allow [;; borrowed from starter
+{:allow [;; tx fns borrowed from starter
          datomic.ion.starter/feature-item?
+         datomic.ion.starter/create-item
          ;; net-new fns        
          com.hlprmnky.ion-appsync.core/items-by-type-json
-         com.hlprmnky.ion-appsync.core/items-by-type-gql]
- :lambdas {:items-by-type
+         com.hlprmnky.ion-appsync.core/items-by-type-gql
+         com.hlprmnky.ion-appsync.core/add-item-return-item]
+ :lambdas {:items-by-type-json
            {:fn com.hlprmnky.ion-appsync.core/items-by-type-json
             :description "returns info in JSON about items with a particular type"}
            :items-by-type-gql
            {:fn com.hlprmnky.ion-appsync.core/items-by-type-gql
-            :description "adapts AppSync query input shape for items-by-type"}}
+            :description "returns info in JSON about items by type, adapting input and output for AppSync"}
+           :add-item-return-item
+           {:fn com.hlprmnky.ion-appsync.core/add-item-return-item
+            :description "adds and item and returns that item rather than the basis-t for use in subscriptions"}}
  :app-name "datomic-cloud-appsync"}

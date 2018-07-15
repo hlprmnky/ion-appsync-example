@@ -1,0 +1,229 @@
+---
+Description: AWS AppSync API for Datomic Ion Starter - API KEY auth only
+Parameters:
+  APIName:
+    Type: String
+    Description: "Name of the API, for generating names for resources"
+    MinLength: 3
+    MaxLength: 20
+    AllowedPattern: '^[a-zA-Z][_a-zA-Z0-9]*$'
+  ComputeStackName:
+    Type: String
+    Description: |
+      Name of the Datomic Cloud compute stack where your Ions are deployed
+    AllowedPattern: '^[a-zA-Z][a-zA-Z0-9_-]*$'
+
+Resources:
+# Here we start with AppSync resources for the Cognito application to serve up
+# First, an IAM role to let us execute the Ions deployed in our stack:
+  IonLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${APIName}-appsync-ion-lambda-role
+      ManagedPolicyArns:
+        - Ref: AppSyncLambdaIonPolicy
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - sts:AssumeRole
+            Principal:
+              Service:
+                - appsync.amazonaws.com
+    DependsOn:
+      - AppSyncLambdaIonPolicy
+
+  AppSyncLambdaIonPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: "Managed policy to allow AWS AppSync to access Datomic Cloud Ions"
+      Path: /appsync/
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - lambda:InvokeFunction
+            Resource:
+              - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${ComputeStackName}-add-item
+              - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${ComputeStackName}-add-item-return-item
+              - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${ComputeStackName}-items-by-type-json
+              - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${ComputeStackName}-items-by-type-gql
+# Next, the actual GraphQL Schema and data source:
+  AppSyncApi:
+    Type: "AWS::AppSync::GraphQLApi"
+    Description: "The GraphQL API for the Starter ions"
+    Properties:
+      AuthenticationType: "API_KEY"
+      Name: !Sub ${APIName}-simple
+
+  AppSyncSchema:
+    Type: "AWS::AppSync::GraphQLSchema"
+    Properties:
+      ApiId: !GetAtt AppSyncApi.ApiId
+      Definition: |
+        type Item {
+          sku: ID!
+          color: String
+          size: String
+          type: String
+          featured?: Boolean
+        }
+        type DatomicBasisT {
+          t: String!
+        }
+        type Query {
+          itemsByTypeGql(type: String!): [Item]
+          itemsByTypeJson(type: String!): [Item]
+        }
+        type Mutation {
+          addItem(sku: ID!, color: String!, size: String!, type: String!): DatomicBasisT
+          addItemReturnItem(sku: ID!, color: String!, size: String!, type: String!): Item
+        }
+        type Subscription {
+          itemAddedItem: Item
+          @aws_subscribe(mutations: ["addItemReturnItem"])
+          itemAddedBasisT: DatomicBasisT
+          @aws_subscribe(mutations: ["addItem"])
+        }
+        type Schema {
+          query: Query
+          mutation: Mutation
+          subscription: Subscription
+        }
+# DataSource instances to expose our Ions to AppSync
+  ItemsByTypeGQLDataSource:
+    Type: "AWS::AppSync::DataSource"
+    DependsOn: AppSyncSchema
+    Properties:
+      Type: "AWS_LAMBDA"
+      Description: "Invoke the itemsByType Ion"
+      ServiceRoleArn: !GetAtt IonLambdaRole.Arn
+      LambdaConfig:
+        LambdaFunctionArn: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${ComputeStackName}-items-by-type-gql
+      ApiId: !GetAtt AppSyncApi.ApiId
+      Name: "ItemsByTypeGQLDatasource"
+  ItemsByTypeJsonDataSource:
+    Type: "AWS::AppSync::DataSource"
+    DependsOn: AppSyncSchema
+    Properties:
+      Type: "AWS_LAMBDA"
+      Description: "Invoke the itemsByType Ion"
+      ServiceRoleArn: !GetAtt IonLambdaRole.Arn
+      LambdaConfig:
+        LambdaFunctionArn: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${ComputeStackName}-items-by-type-json
+      ApiId: !GetAtt AppSyncApi.ApiId
+      Name: "ItemsByTypeJsonDatasource"
+  AddItemDataSource:
+    Type: "AWS::AppSync::DataSource"
+    DependsOn: AppSyncSchema
+    Properties:
+      Type: "AWS_LAMBDA"
+      Description: "Invoke addItem Ion"
+      ServiceRoleArn: !GetAtt IonLambdaRole.Arn
+      LambdaConfig:
+        LambdaFunctionArn: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${ComputeStackName}-add-item
+      ApiId: !GetAtt AppSyncApi.ApiId
+      Name: "AddItemDatasource"
+  AddItemReturnItemDataSource:
+    Type: "AWS::AppSync::DataSource"
+    DependsOn: AppSyncSchema
+    Properties:
+      Type: "AWS_LAMBDA"
+      Description: "Invoke addItem Ion"
+      ServiceRoleArn: !GetAtt IonLambdaRole.Arn
+      LambdaConfig:
+        LambdaFunctionArn: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${ComputeStackName}-add-item-return-item
+      ApiId: !GetAtt AppSyncApi.ApiId
+      Name: "AddItemReturnItemDatasource"
+# And finally the resolvers that map GraphQL fields onto our Lambda Ions
+  ItemsByTypeGqlResolver:
+    Type: "AWS::AppSync::Resolver"
+    DependsOn: AppSyncSchema
+    Properties:
+      ApiId: !GetAtt AppSyncApi.ApiId
+      TypeName: Query
+      FieldName: itemsByTypeGql
+      DataSourceName: !GetAtt ItemsByTypeGQLDataSource.Name
+      RequestMappingTemplate: |
+        {
+          "version": "2017-02-28",
+          "operation": "Invoke",
+          "payload": $utils.toJson($context.arguments)
+        }
+      ResponseMappingTemplate: |
+          $utils.toJson($context.result)
+  ItemsByTypeJsonResolver:
+    Type: "AWS::AppSync::Resolver"
+    DependsOn: AppSyncSchema
+    Properties:
+      ApiId: !GetAtt AppSyncApi.ApiId
+      TypeName: Query
+      FieldName: itemsByTypeJson
+      DataSourceName: !GetAtt ItemsByTypeJsonDataSource.Name
+      RequestMappingTemplate: |
+        {
+          "version": "2017-02-28",
+          "operation": "Invoke",
+          "payload": $utils.toJson($context.arguments.type)
+        }
+      ResponseMappingTemplate: |
+        \#set ( $itemsArray = [] )
+        \#foreach ( $item in $context.result )
+          \#set ( $itemMap = {} )
+          \#foreach ( $value in $item )
+            \#if ( $foreach.count == 1 )
+              $util.qr($itemMap.put("sku", $value))
+            \#{elseif ( $foreach.count == 2) }
+              $util.qr($itemMap.put("size", $value))
+            \#{elseif ( $foreach.count == 3) }
+              $util.qr($itemMap.put("color", $value))
+            \#{elseif ( $foreach.count == 4) }
+              $util.qr($itemMap.put("featured", $value))
+            \#end
+          \#end
+          $util.qr( $itemsArray.push( $itemMap ))
+        \#end
+        $utils.toJson($itemsArray)
+  AddItemResolver:
+    Type: "AWS::AppSync::Resolver"
+    DependsOn: AppSyncSchema
+    Properties:
+      ApiId: !GetAtt AppSyncApi.ApiId
+      TypeName: Mutation
+      FieldName: addItem
+      DataSourceName: !GetAtt AddItemDataSource.Name
+      RequestMappingTemplate: |
+        {
+          "version": "2017-02-28",
+          "operation": "Invoke",
+          "payload": $utils.toJson([$context.arguments.sku, $context.arguments.color, $context.arguments.size, $context.arguments.type])
+        }
+      ResponseMappingTemplate: |
+        \#set ( $noColons = $context.result.replace(":", "") )
+        \#set ( $quoted = $noColons.replace( "t", "\"t\"") )
+        $utils.toJson($quoted)
+  AddItemReturnItemResolver:
+    Type: "AWS::AppSync::Resolver"
+    DependsOn: AppSyncSchema
+    Properties:
+      ApiId: !GetAtt AppSyncApi.ApiId
+      TypeName: Mutation
+      FieldName: addItemReturnItem
+      DataSourceName: !GetAtt AddItemReturnItemDataSource.Name
+      RequestMappingTemplate: |
+        {
+          "version": "2017-02-28",
+          "operation": "Invoke",
+          "payload": $utils.toJson([$context.arguments.sku, $context.arguments.color, $context.arguments.size, $context.arguments.type])
+        }
+      ResponseMappingTemplate: |
+        $utils.toJson($context.result)
+Outputs:
+  GraphQLApiEndpoint:
+    Description: The URL to the GraphQL Endpoint
+    Value: !GetAtt AppSyncApi.GraphQLUrl
+  GraphQLApiId:
+    Description: The API ID of the GraphQL API
+    Value: !GetAtt AppSyncApi.ApiId

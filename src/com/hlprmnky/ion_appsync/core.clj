@@ -28,7 +28,7 @@ locally, fill in the correct values in the map."
   (let [type (keyword (get (json/read-str input) "type"))
         conn (d/connect (get-client) {:db-name "datomic-cloud-appsync"})]
     ;; NOTE that conn can - and should be - parameterized in production builds.
-    ;; See the ion-starter repo and get-connection for a better but more verbose approach
+    ;; See the ion-starter repo and get-connection for a more production-ready approach with Datomic schema validation, etc.
     (->> (ion/items-by-type* (d/db conn) type)
           json/write-str)))
 
@@ -38,7 +38,7 @@ locally, fill in the correct values in the map."
   (let [type (keyword (get (json/read-str input) "type"))
         conn (d/connect (get-client) {:db-name "datomic-cloud-appsync"})]
     ;; NOTE that conn can - and should be - parameterized in production builds.
-    ;; See the ion-starter repo and get-connection for a better but more verbose approach
+    ;; See the ion-starter repo and get-connection for a more production-ready approach with Datomic schema validation, etc.
     (try
       (->> (ion/items-by-type* (d/db conn) type)
            (map #(zipmap [:sku :size :color :featured] %))
@@ -50,11 +50,21 @@ locally, fill in the correct values in the map."
                               "|, resolved type data: |"
                               type
                               "|")))))
-
+(defn add-item-return-item
+  "Add an item but return the item rather than the basis-t so that AppSync @subscribe directive can return the item
+"
+  [{:keys [input]}]
+  (let [parsed (json/read-str input)
+        added {:sku (get parsed "sku")
+               :color (get parsed "color")
+               :size (get parsed "size")
+               :type (get parsed "type")}
+        result (ion/add-item {:input input})]
+    (json/write-str added))) ;; could do error handling with result here
 
 (comment
-  (System/setProperty "aws.profile" "hlprmnky")
   (items-by-type-json {:input "{\"type\" : \"hat\"}"})
-  (items-by-type-gql {:input "{\"type\" : \"hat\"}"})
-  (items-by-type-gql {:input "{\"type\" : \"vibranium bracelet\"}"}))
+  (items-by-type-gql {:input "{\"type\" : \"shirt\"}"})
+  (items-by-type-gql {:input "{\"type\" : \"vibranium bracelet\"}"})
+  (add-item-return-item {:input "{\"sku\": \"TEST-123\", \"color\": \"blue\", \"size\": \"large\", \"type\": \"shirt\"}"}))
 
