@@ -8,7 +8,7 @@ Fear not! Keep reading right here, and by the time we get to the `You Will Need:
 ## What is AWS AppSync?
 ### tl;dr: `AWS API Gateway` : `REST` :: `AWS AppSync` : `GraphQL`
 After almost a decade of eating the world, REST has recently begun to see competiton in the form of [GraphQL](https://www.graphql.org). Developed at Facebook, GraphQL is a model for querying and mutating data from an API endpoint that is very different from REST in several ways that I won't go into great detail about in this README. I will simply say that many people and organizations have found it to be a good fit for their problem space. Standing up a GraphQL server in AWS has historically been the province of running servers, either Docker containers in Elastic Container Service or plain EC2 machines, which are then hooked up to load balancers, monitored, patched, and so forth.  
-That changed last April 13 at [React Amsterdam] (https://youtu.be/P_mGa91wZ4o "YouTube recording of AWS AppSync talk"), when AWS announced the GA of AWS AppSync, which is a fully managed service for GraphQL APIs in much the same way that AWS API Gateway is a fully-managed service for REST. Since the announcement, interest in and attention to AppSync in the AWS and especially the #Serverless community has been, well... ![sohotrightnow "Very high"](./doc/images/sohotrightnow.gif)
+That changed last April 13 at [React Amsterdam](https://youtu.be/P_mGa91wZ4o), when AWS announced the GA of AWS AppSync, which is a fully managed service for GraphQL APIs in much the same way that AWS API Gateway is a fully-managed service for REST. Since the announcement, interest in and attention to AppSync in the AWS and especially the #Serverless community has been, well... ![sohotrightnow "Very high"](./doc/images/sohotrightnow.gif)
 
 ## What is Datomic Cloud, and what are Ions?
 I could write a whole page just about this. Please start with a few resources: 
@@ -91,7 +91,7 @@ Click the 'New' button and you have an API key:
 ![appsync_key_created "key created"](./doc/images/appsync_api_key_created.png)
 
 Now, by providing that key as the value for an `x-api-key` header in `curl`, GraphiQL, or a client, you can access your AppSync API. The AWS AppSync console also _provides_ a bundled GraphiQL window where you can try out queries:
-![appsync_query_window "the appsync query window"](./doc/images/appsync_api_query_success.png)
+![appsync_query_window "the appsync query window"](./doc/images/appsync-query-success.png)
 
 
 #### New ions - what and why
